@@ -1,16 +1,10 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js';
 
-const url = import.meta.env.VITE_SUPABASE_URL;
-const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-type SupabaseClientInstance = ReturnType<typeof createClient>;
-
-let supabase: SupabaseClientInstance | null = null;
-
-if (!url || !anon) {
-	console.warn("Supabase non configuré : utilisez le fallback local.");
-} else {
-	supabase = createClient(url, anon);
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase env vars: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY');
 }
 
-export { supabase };
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

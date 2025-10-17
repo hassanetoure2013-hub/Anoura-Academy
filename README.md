@@ -119,13 +119,6 @@ supabase db reset --seed supabase/pages.seed.sql
 - Ajouter les deux variables d'environnement dans l'onglet **Environment Variables**.
 - Déployer : Vercel installe automatiquement les dépendances puis lance `npm run build` et `npm run preview`.
 
-### Netlify
-
-- Créer un nouveau site à partir du repo Git.
-- Configurer la commande de build (`npm run build`) et le dossier de publication (`dist`).
-- Définir les variables Supabase dans l'onglet **Site settings > Build & deploy > Environment**.
-- Déployer et vérifier le routing client (Netlify détecte Vite et applique la réécriture `/*` vers `index.html`).
-
 ### Déploiement manuel (FTP / S3)
 
 - Exécuter `npm run build` en local.
@@ -151,11 +144,10 @@ Le script vérifie la présence des variables Supabase et des CLI (`vercel`, `ne
 
 ### CI/CD GitHub Actions
 
-Un workflow automatisé (`.github/workflows/deploy.yml`) construit l'application à chaque push sur `main` et déploie si les secrets requis sont fournis.
+Un workflow automatisé (`.github/workflows/deploy.yml`) construit l'application à chaque push sur `main` puis déploie sur Vercel si les secrets requis sont fournis.
 
 - Secrets Supabase : `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (nécessaires au build si vous ciblez Supabase).
-- Secrets Netlify : `NETLIFY_AUTH_TOKEN`, `NETLIFY_SITE_ID` pour déclencher `netlify deploy --prod`.
 - Secrets Vercel : `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` pour exécuter `vercel deploy --prebuilt --prod`.
-- L'artifact `dist` est toujours publié pour téléchargement rapide, quel que soit le provider.
+- L'artifact `dist` est toujours publié pour téléchargement rapide.
 - Le workflow est aussi exécutable manuellement via l'interface Actions (`Run workflow`).
-Pour toute autre intégration, adaptez les workflows selon vos besoins.
+

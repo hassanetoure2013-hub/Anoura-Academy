@@ -1,5 +1,5 @@
 import { useEffect, useState, type JSX } from "react";
-import DOMPurify from "dompurify";
+import { sanitizeHtml } from "../lib/sanitize";
 import MGXFallback from "../components/mgx/Fallback";
 import { supabase } from "../lib/supabase";
 import { MGX_FALLBACK_PAGES } from "../components/mgx/content";
@@ -89,7 +89,7 @@ export default function MGXPage({ slug }: MGXPageProps): JSX.Element {
 
   if (!fallbackContent) {
     const message = `Page MGX inconnue : ${normalizedSlug}.`;
-    const safeMessage = DOMPurify.sanitize(message);
+  const safeMessage = sanitizeHtml(message);
     return <p dangerouslySetInnerHTML={{ __html: safeMessage }} />;
   }
 
@@ -105,6 +105,6 @@ export default function MGXPage({ slug }: MGXPageProps): JSX.Element {
     return <p>Chargement…</p>;
   }
 
-  const safe = DOMPurify.sanitize(html);
+  const safe = sanitizeHtml(html);
   return <div className="mgx-html" dangerouslySetInnerHTML={{ __html: safe }} />;
 }
