@@ -24,19 +24,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - name: Configure Supabase env
-        shell: bash
-        # actionlint: allow expr
-        run: |
-          if [ -n "${{ secrets.VITE_SUPABASE_URL }}" ] && [ -n "${{ secrets.VITE_SUPABASE_ANON_KEY }}" ]; then
-            echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> "$GITHUB_ENV"
-            echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> "$GITHUB_ENV"
-          fi
-
       - name: Install dependencies
         run: npm ci
 
       - name: Build application
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
 
       - name: Upload dist artifact
@@ -45,24 +39,60 @@ jobs:
           name: dist
           path: dist
 
-      - name: Configure Vercel env
+      - name: Preflight deploy targets
         shell: bash
-        # actionlint: allow expr
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          if [ -n "${{ secrets.VERCEL_TOKEN }}" ] && [ -n "${{ secrets.VERCEL_ORG_ID }}" ] && [ -n "${{ secrets.VERCEL_PROJECT_ID }}" ]; then
-            echo "VERCEL_TOKEN=${{ secrets.VERCEL_TOKEN }}" >> "$GITHUB_ENV"
-            echo "VERCEL_ORG_ID=${{ secrets.VERCEL_ORG_ID }}" >> "$GITHUB_ENV"
-            echo "VERCEL_PROJECT_ID=${{ secrets.VERCEL_PROJECT_ID }}" >> "$GITHUB_ENV"
+          has_netlify=0
+          has_vercel=0
+
+          if [ -n "${NETLIFY_AUTH_TOKEN}" ] && [ -n "${NETLIFY_SITE_ID}" ]; then
+            has_netlify=1
+            echo "Netlify: OK (NETLIFY_SITE_ID présent)"
+          else
+            echo "Netlify: secrets manquants (NETLIFY_AUTH_TOKEN/NETLIFY_SITE_ID)"
           fi
+
+          if [ -n "${VERCEL_TOKEN}" ] && [ -n "${VERCEL_ORG_ID}" ] && [ -n "${VERCEL_PROJECT_ID}" ]; then
+            has_vercel=1
+            echo "Vercel: OK (ORG/PROJECT configurés)"
+          else
+            echo "Vercel: secrets manquants (VERCEL_TOKEN/VERCEL_ORG_ID/VERCEL_PROJECT_ID)"
+          fi
+
+          if [ $has_netlify -eq 0 ] && [ $has_vercel -eq 0 ]; then
+            echo "Aucune cible de déploiement configurée. Configurez Netlify ou Vercel via GitHub Secrets."
+            exit 1
+          fi
+
+      - name: Deploy to Netlify
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        shell: bash
+        run: |
+          if [ -z "${NETLIFY_AUTH_TOKEN}" ] || [ -z "${NETLIFY_SITE_ID}" ]; then
+            echo "Netlify: secrets manquants, étape ignorée."
+            exit 0
+          fi
+          npx netlify deploy --dir dist --prod --auth "$NETLIFY_AUTH_TOKEN" --site "$NETLIFY_SITE_ID"
 
       - name: Deploy to Vercel
         shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
           if [ -z "${VERCEL_TOKEN}" ] || [ -z "${VERCEL_ORG_ID}" ] || [ -z "${VERCEL_PROJECT_ID}" ]; then
-            echo "Secrets Vercel manquants : déploiement ignoré."
+            echo "Vercel: secrets manquants, étape ignorée."
             exit 0
           fi
-
           npm install -g vercel
           vercel pull --yes --environment=production --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
           vercel deploy --prebuilt --prod --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" --project "$VERCEL_PROJECT_ID"
