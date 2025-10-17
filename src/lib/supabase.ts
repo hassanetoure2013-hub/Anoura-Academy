@@ -3,7 +3,14 @@ import { createClient } from "@supabase/supabase-js";
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!url) throw new Error("VITE_SUPABASE_URL manquante");
-if (!anon) throw new Error("VITE_SUPABASE_ANON_KEY manquante");
+type SupabaseClientInstance = ReturnType<typeof createClient>;
 
-export const supabase = createClient(url, anon);
+let supabase: SupabaseClientInstance | null = null;
+
+if (!url || !anon) {
+	console.warn("Supabase non configuré : utilisez le fallback local.");
+} else {
+	supabase = createClient(url, anon);
+}
+
+export { supabase };
