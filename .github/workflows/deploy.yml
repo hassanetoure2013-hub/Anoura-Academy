@@ -22,23 +22,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build application
+      # --- BUILD (commune à Netlify et Vercel) ---
+      - name: Build application (Vite)
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
 
-      - name: Upload dist artifact
+      - name: Upload dist artifact (optional)
         uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist
 
+      # --- PREFLIGHT: détecte quelles cibles sont configurées ---
       - name: Preflight deploy targets
         shell: bash
         env:
@@ -70,29 +72,37 @@ jobs:
             exit 1
           fi
 
+          echo "NETLIFY_ENABLED=$has_netlify" >> $GITHUB_ENV
+          echo "VERCEL_ENABLED=$has_vercel" >> $GITHUB_ENV
+
+      # --- DEPLOY NETLIFY (optionnel) ---
       - name: Deploy to Netlify
+        if: env.NETLIFY_ENABLED == '1'
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-        shell: bash
         run: |
-          if [ -z "${NETLIFY_AUTH_TOKEN}" ] || [ -z "${NETLIFY_SITE_ID}" ]; then
-            echo "Netlify: secrets manquants, étape ignorée."
-            exit 0
-          fi
-          npx netlify deploy --dir dist --prod --auth "$NETLIFY_AUTH_TOKEN" --site "$NETLIFY_SITE_ID"
+          npm i -g netlify-cli
+          netlify deploy --dir=dist --prod --auth "$NETLIFY_AUTH_TOKEN" --site "$NETLIFY_SITE_ID"
 
-      - name: Deploy to Vercel
-        shell: bash
+      # --- DEPLOY VERCEL (statique depuis dist/) ---
+      - name: Deploy to Vercel (static dist)
+        if: env.VERCEL_ENABLED == '1'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}          # slug d'équipe
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}  # ID du projet
         run: |
-          if [ -z "${VERCEL_TOKEN}" ] || [ -z "${VERCEL_ORG_ID}" ] || [ -z "${VERCEL_PROJECT_ID}" ]; then
-            echo "Vercel: secrets manquants, étape ignorée."
-            exit 0
-          fi
-          npm install -g vercel
-          vercel pull --yes --environment=production --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
-          vercel deploy --prebuilt --prod --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" --project "$VERCEL_PROJECT_ID"
+          npm i -g vercel
+          # Écrit .vercel/project.json pour lier le repo au bon projet/équipe
+          vercel pull --yes --environment=production \
+            --token "$VERCEL_TOKEN" \
+            --scope "$VERCEL_ORG_ID" \
+            --project "$VERCEL_PROJECT_ID"
+
+          # Déploie le build Vite (dossier dist/) en production
+          vercel deploy dist --prod \
+            --token "$VERCEL_TOKEN" \
+            --scope "$VERCEL_ORG_ID" \
+            --project "$VERCEL_PROJECT_ID" \
+            --yes
