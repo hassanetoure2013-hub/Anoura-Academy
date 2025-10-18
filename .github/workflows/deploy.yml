@@ -40,44 +40,25 @@ jobs:
           name: dist
           path: dist
 
-      # --- PREFLIGHT: détecte quelles cibles sont configurées ---
-      - name: Preflight deploy targets
+      # --- VERIFY VERCEL SECRETS ---
+      - name: Verify Vercel secrets
         shell: bash
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          has_netlify=0
-          has_vercel=0
-
-          if [ -n "${NETLIFY_AUTH_TOKEN}" ] && [ -n "${NETLIFY_SITE_ID}" ]; then
-            has_netlify=1
-            echo "Netlify: OK (NETLIFY_SITE_ID présent)"
-          else
-            echo "Netlify: secrets manquants (NETLIFY_AUTH_TOKEN/NETLIFY_SITE_ID)"
-          fi
-
-          if [ -n "${VERCEL_TOKEN}" ] && [ -n "${VERCEL_ORG_ID}" ] && [ -n "${VERCEL_PROJECT_ID}" ]; then
-            has_vercel=1
-            echo "Vercel: OK (ORG/PROJECT configurés)"
-          else
-            echo "Vercel: secrets manquants (VERCEL_TOKEN/VERCEL_ORG_ID/VERCEL_PROJECT_ID)"
-          fi
-
-          if [ $has_netlify -eq 0 ] && [ $has_vercel -eq 0 ]; then
-            echo "Aucune cible de déploiement configurée. Configurez Netlify ou Vercel via GitHub Secrets."
+          missing=0
+          [ -z "$VERCEL_TOKEN" ] && echo "Missing VERCEL_TOKEN" && missing=1
+          [ -z "$VERCEL_ORG_ID" ] && echo "Missing VERCEL_ORG_ID" && missing=1
+          [ -z "$VERCEL_PROJECT_ID" ] && echo "Missing VERCEL_PROJECT_ID" && missing=1
+          if [ $missing -ne 0 ]; then
+            echo "Configure required Vercel secrets in repository settings."
             exit 1
           fi
 
-          echo "NETLIFY_ENABLED=$has_netlify" >> $GITHUB_ENV
-          echo "VERCEL_ENABLED=$has_vercel" >> $GITHUB_ENV
-
-      # --- DIAGNOSTICS VERCEL (aide à résoudre scope/token) ---
+      # --- VERCEL DIAGNOSTICS ---
       - name: Vercel scope diagnostics
-        if: ${{ env.VERCEL_ENABLED == '1' }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -92,19 +73,8 @@ jobs:
           echo "--- projects ls (with scope) ---"
           vercel projects ls --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" || true
 
-      # --- DEPLOY NETLIFY (optionnel) ---
-      - name: Deploy to Netlify
-        if: ${{ env.NETLIFY_ENABLED == '1' }}
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-        run: |
-          npm i -g netlify-cli
-          netlify deploy --dir=dist --prod --auth "$NETLIFY_AUTH_TOKEN" --site "$NETLIFY_SITE_ID"
-
       # --- DEPLOY VERCEL (statique depuis dist/) ---
       - name: Deploy to Vercel (static dist)
-        if: ${{ env.VERCEL_ENABLED == '1' }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}          # slug d'équipe
