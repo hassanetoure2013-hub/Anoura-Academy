@@ -112,6 +112,10 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}  # ID du projet
         run: |
           npm i -g vercel
+          # Copie vercel.json dans dist pour que Vercel prenne les rewrites SPA lors du déploiement statique
+          if [ -f "vercel.json" ]; then
+            cp vercel.json dist/
+          fi
           # Écrit .vercel/project.json pour lier le repo au bon projet/équipe
           vercel pull --yes --environment=production \
             --token "$VERCEL_TOKEN" \
