@@ -9,6 +9,12 @@ on:
 
 env:
   NODE_VERSION: '20'
+  # Allow configuring via repository Secrets or Variables (vars) as fallback.
+  # VERCEL_ORG_ID accepts either org ID or slug. PROJECT fallback handles ID or name.
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_TOKEN || vars.VERCEL_TOKEN }}
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_ORG_ID || (vars.VERCEL_ORG_ID != '' && vars.VERCEL_ORG_ID || vars.VERCEL_ORG_SLUG) }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID != '' && secrets.VERCEL_PROJECT_ID || vars.VERCEL_PROJECT_ID }}
+  VERCEL_PROJECT_NAME: ${{ secrets.VERCEL_PROJECT_NAME != '' && secrets.VERCEL_PROJECT_NAME || vars.VERCEL_PROJECT_NAME }}
 
 jobs:
   build-and-deploy:
@@ -43,51 +49,46 @@ jobs:
       # --- VERIFY VERCEL SECRETS ---
       - name: Verify Vercel secrets
         shell: bash
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_PROJECT_NAME: ${{ secrets.VERCEL_PROJECT_NAME }}
         run: |
           missing=0
           [ -z "$VERCEL_TOKEN" ] && echo "Missing VERCEL_TOKEN" && missing=1
           [ -z "$VERCEL_ORG_ID" ] && echo "Missing VERCEL_ORG_ID" && missing=1
-          if [ -z "$VERCEL_PROJECT_ID" ] && [ -z "$VERCEL_PROJECT_NAME" ]; then
-            echo "Missing project identifier: set either VERCEL_PROJECT_ID or VERCEL_PROJECT_NAME"
+          project_ref="$VERCEL_PROJECT_ID"
+          if [ -z "$project_ref" ] && [ -n "$VERCEL_PROJECT_NAME" ]; then
+            project_ref="$VERCEL_PROJECT_NAME"
+            echo "Using VERCEL_PROJECT_NAME fallback"
+          fi
+          if [ -z "$project_ref" ]; then
+            echo "Missing VERCEL_PROJECT_ID or VERCEL_PROJECT_NAME"
             missing=1
           fi
           if [ $missing -ne 0 ]; then
             echo "Configure required Vercel secrets in repository settings."
             exit 1
           fi
+          echo "VERCEL_PROJECT_REF=$project_ref" >> "$GITHUB_ENV"
 
       # --- VERCEL DIAGNOSTICS ---
       - name: Vercel scope diagnostics
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_PROJECT_NAME: ${{ secrets.VERCEL_PROJECT_NAME }}
         run: |
           echo "Vercel diagnostics:"
-          echo "  Provided org scope: $VERCEL_ORG_ID"
+          echo "  Provided org scope present: $([ -n "$VERCEL_ORG_ID" ] && echo yes || echo no)"
           npm i -g vercel
           echo "--- whoami ---"
           vercel whoami --token "$VERCEL_TOKEN" || true
           echo "--- teams ls (slugs) ---"
           vercel teams ls --token "$VERCEL_TOKEN" || true
           echo "--- projects ls (with scope) ---"
-          vercel projects ls --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" || true
+          if [ -n "$VERCEL_ORG_ID" ]; then
+            vercel projects ls --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" || true
+          else
+            vercel projects ls --token "$VERCEL_TOKEN" || true
+          fi
           echo "--- selected project ---"
-          if [ -n "$VERCEL_PROJECT_ID" ]; then echo "Using project ID: $VERCEL_PROJECT_ID"; else echo "Using project NAME: $VERCEL_PROJECT_NAME"; fi
+          echo "  Using project reference: ${VERCEL_PROJECT_REF:-'(not set)'}"
 
       # --- DEPLOY VERCEL (statique depuis dist/) ---
       - name: Deploy to Vercel (static dist)
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}          # slug d'équipe
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}  # ID du projet
-          VERCEL_PROJECT_NAME: ${{ secrets.VERCEL_PROJECT_NAME }}  # Nom du projet (alternative)
         run: |
           npm i -g vercel
           # Copie vercel.json dans dist pour que Vercel prenne les rewrites SPA lors du déploiement statique
@@ -95,15 +96,14 @@ jobs:
             cp vercel.json dist/
           fi
           # Écrit .vercel/project.json pour lier le repo au bon projet/équipe
-          PROJ="$VERCEL_PROJECT_ID"; if [ -z "$PROJ" ]; then PROJ="$VERCEL_PROJECT_NAME"; fi
           vercel pull --yes --environment=production \
             --token "$VERCEL_TOKEN" \
             --scope "$VERCEL_ORG_ID" \
-            --project "$PROJ"
+            --project "$VERCEL_PROJECT_REF"
 
           # Déploie le build Vite (dossier dist/) en production
           vercel deploy dist --prod \
             --token "$VERCEL_TOKEN" \
             --scope "$VERCEL_ORG_ID" \
-            --project "$PROJ" \
+            --project "$VERCEL_PROJECT_REF" \
             --yes
