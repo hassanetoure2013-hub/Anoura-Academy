@@ -33,7 +33,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # --- BUILD (commune à Netlify et Vercel) ---
+      # --- BUILD (application Vite) ---
       - name: Build application (Vite)
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
@@ -66,18 +66,16 @@ jobs:
             echo "Configure required Vercel secrets in repository settings."
             exit 1
           fi
-          echo "VERCEL_PROJECT_REF=$project_ref" >> "$GITHUB_ENV"
+          echo "VERCEL_ENABLED=1" >> $GITHUB_ENV
 
       # --- VERCEL DIAGNOSTICS ---
       - name: Vercel scope diagnostics
+        if: env.VERCEL_ENABLED == '1'
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
         run: |
-          echo "Vercel diagnostics:"
-          echo "  Provided org scope present: $([ -n "$VERCEL_ORG_ID" ] && echo yes || echo no)"
-          npm i -g vercel
-          echo "--- whoami ---"
-          vercel whoami --token "$VERCEL_TOKEN" || true
-          echo "--- teams ls (slugs) ---"
-          vercel teams ls --token "$VERCEL_TOKEN" || true
           echo "--- projects ls (with scope) ---"
           if [ -n "$VERCEL_ORG_ID" ]; then
             vercel projects ls --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" || true
@@ -89,21 +87,13 @@ jobs:
 
       # --- DEPLOY VERCEL (statique depuis dist/) ---
       - name: Deploy to Vercel (static dist)
+        if: env.VERCEL_ENABLED == '1'
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
           npm i -g vercel
-          # Copie vercel.json dans dist pour que Vercel prenne les rewrites SPA lors du déploiement statique
-          if [ -f "vercel.json" ]; then
-            cp vercel.json dist/
-          fi
-          # Écrit .vercel/project.json pour lier le repo au bon projet/équipe
-          vercel pull --yes --environment=production \
-            --token "$VERCEL_TOKEN" \
-            --scope "$VERCEL_ORG_ID" \
-            --project "$VERCEL_PROJECT_REF"
-
-          # Déploie le build Vite (dossier dist/) en production
-          vercel deploy dist --prod \
-            --token "$VERCEL_TOKEN" \
-            --scope "$VERCEL_ORG_ID" \
-            --project "$VERCEL_PROJECT_REF" \
-            --yes
+          # deploy the static "dist" directory to the given Vercel project
+          vercel --prod --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" --confirm --cwd dist --project "$VERCEL_PROJECT_ID"
