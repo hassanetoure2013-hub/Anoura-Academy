@@ -76,14 +76,21 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
         run: |
-          echo "--- projects ls (with scope) ---"
+          echo "--- vercel whoami ---"
+          # Validate token and show account/orgs accessible with this token
+          npx vercel whoami --token "$VERCEL_TOKEN" || true
+
+          echo "--- projects ls (with scope if provided) ---"
           if [ -n "$VERCEL_ORG_ID" ]; then
-            vercel projects ls --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" || true
+            echo "Using scope: $VERCEL_ORG_ID"
+            npx vercel projects ls --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" || true
           else
-            vercel projects ls --token "$VERCEL_TOKEN" || true
+            npx vercel projects ls --token "$VERCEL_TOKEN" || true
           fi
+
           echo "--- selected project ---"
-          echo "  Using project reference: ${VERCEL_PROJECT_REF:-'(not set)'}"
+          PROJECT_REF="${VERCEL_PROJECT_ID:-$VERCEL_PROJECT_NAME}"
+          echo "  Using project reference: ${PROJECT_REF:-'(not set)'}"
 
       # --- DEPLOY VERCEL (statique depuis dist/) ---
       - name: Deploy to Vercel (static dist)
@@ -93,7 +100,21 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_PROJECT_NAME: ${{ secrets.VERCEL_PROJECT_NAME }}
         run: |
-          npm i -g vercel
-          # deploy the static "dist" directory to the given Vercel project
-          vercel --prod --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" --confirm --cwd dist --project "$VERCEL_PROJECT_ID"
+          # prefer npx (no global install required); fallback to global install if npx not available
+          command -v npx >/dev/null 2>&1 || npm i -g vercel
+
+          PROJECT_REF="${VERCEL_PROJECT_ID:-$VERCEL_PROJECT_NAME}"
+          if [ -z "$PROJECT_REF" ]; then
+            echo "Missing VERCEL_PROJECT_ID or VERCEL_PROJECT_NAME"; exit 1
+          fi
+
+          # Only include --scope if VERCEL_ORG_ID is set (avoids "scope does not exist" if empty/invalid)
+          SCOPE_ARGS=""
+          if [ -n "$VERCEL_ORG_ID" ]; then
+            SCOPE_ARGS="--scope $VERCEL_ORG_ID"
+          fi
+
+          echo "Deploying project '$PROJECT_REF' ${VERCEL_ORG_ID:+to scope $VERCEL_ORG_ID}"
+          npx vercel --token "$VERCEL_TOKEN" --prod $SCOPE_ARGS --confirm --cwd dist --project "$PROJECT_REF"
