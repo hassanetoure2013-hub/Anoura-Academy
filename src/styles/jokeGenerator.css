@@ -1,0 +1,218 @@
+/* Joke Generator Component Styles */
+
+.joke-generator {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.joke-generator-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.joke-generator-header h2 {
+  font-size: 2rem;
+  margin: 0 0 0.5rem 0;
+  font-weight: 700;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.joke-generator-subtitle {
+  font-size: 1rem;
+  margin: 0;
+  opacity: 0.9;
+}
+
+.joke-generator-content {
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.joke-error {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 1.5rem;
+  border-radius: 8px;
+  text-align: center;
+  border-left: 4px solid #ff6b6b;
+}
+
+.joke-error p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.joke-display {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  padding: 2rem;
+  border-radius: 12px;
+  width: 100%;
+  position: relative;
+}
+
+.joke-type-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.3);
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 1rem;
+}
+
+.joke-setup {
+  margin-bottom: 1.5rem;
+}
+
+.joke-setup p {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  margin: 0;
+  font-weight: 500;
+}
+
+.joke-punchline {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #ffd700;
+}
+
+.joke-punchline p {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  margin: 0;
+  font-weight: 600;
+  font-style: italic;
+}
+
+.joke-reveal-button {
+  background: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.joke-reveal-button:hover {
+  background: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.8);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.joke-reveal-button:active {
+  transform: translateY(0);
+}
+
+.joke-placeholder {
+  text-align: center;
+  opacity: 0.8;
+}
+
+.joke-placeholder p {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.joke-generator-actions {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.joke-button {
+  background: #ffffff;
+  color: #667eea;
+  border: none;
+  padding: 1rem 2.5rem;
+  border-radius: 50px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.joke-button:hover:not(:disabled) {
+  background: #f0f0f0;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.joke-button:active:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.joke-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.joke-generator-footer {
+  text-align: center;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.joke-generator-footer p {
+  margin: 0;
+  font-size: 0.875rem;
+  opacity: 0.7;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .joke-generator {
+    margin: 1rem;
+    padding: 1.5rem;
+  }
+
+  .joke-generator-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .joke-setup p,
+  .joke-punchline p {
+    font-size: 1.1rem;
+  }
+
+  .joke-button {
+    padding: 0.875rem 2rem;
+    font-size: 1rem;
+  }
+}
+
+/* Animation for joke appearance */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.joke-display {
+  animation: fadeIn 0.4s ease-out;
+}
