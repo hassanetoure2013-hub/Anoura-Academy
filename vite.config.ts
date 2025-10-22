@@ -14,4 +14,10 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
+  // DEBUG: enable sourcemaps and disable minify to make production stack traces readable.
+  // Remove or revert these options after debugging to restore optimized builds.
+  build: {
+    sourcemap: true,
+    minify: false,
+  },
 })

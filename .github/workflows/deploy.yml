@@ -9,6 +9,12 @@ on:
 
 env:
   NODE_VERSION: '20'
+  # Allow configuring via repository Secrets or Variables (vars) as fallback.
+  # VERCEL_ORG_ID accepts either org ID or slug. PROJECT fallback handles ID or name.
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_TOKEN || vars.VERCEL_TOKEN }}
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_ORG_ID || (vars.VERCEL_ORG_ID != '' && vars.VERCEL_ORG_ID || vars.VERCEL_ORG_SLUG) }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID != '' && secrets.VERCEL_PROJECT_ID || vars.VERCEL_PROJECT_ID }}
+  VERCEL_PROJECT_NAME: ${{ secrets.VERCEL_PROJECT_NAME != '' && secrets.VERCEL_PROJECT_NAME || vars.VERCEL_PROJECT_NAME }}
 
 jobs:
   build-and-deploy:
@@ -43,15 +49,19 @@ jobs:
       # --- VERIFY VERCEL SECRETS ---
       - name: Verify Vercel secrets
         shell: bash
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
           missing=0
           [ -z "$VERCEL_TOKEN" ] && echo "Missing VERCEL_TOKEN" && missing=1
           [ -z "$VERCEL_ORG_ID" ] && echo "Missing VERCEL_ORG_ID" && missing=1
-          [ -z "$VERCEL_PROJECT_ID" ] && echo "Missing VERCEL_PROJECT_ID" && missing=1
+          project_ref="$VERCEL_PROJECT_ID"
+          if [ -z "$project_ref" ] && [ -n "$VERCEL_PROJECT_NAME" ]; then
+            project_ref="$VERCEL_PROJECT_NAME"
+            echo "Using VERCEL_PROJECT_NAME fallback"
+          fi
+          if [ -z "$project_ref" ]; then
+            echo "Missing VERCEL_PROJECT_ID or VERCEL_PROJECT_NAME"
+            missing=1
+          fi
           if [ $missing -ne 0 ]; then
             echo "Configure required Vercel secrets in repository settings."
             exit 1
@@ -67,7 +77,13 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
         run: |
           echo "--- projects ls (with scope) ---"
-          vercel projects ls --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" || true
+          if [ -n "$VERCEL_ORG_ID" ]; then
+            vercel projects ls --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" || true
+          else
+            vercel projects ls --token "$VERCEL_TOKEN" || true
+          fi
+          echo "--- selected project ---"
+          echo "  Using project reference: ${VERCEL_PROJECT_REF:-'(not set)'}"
 
       # --- DEPLOY VERCEL (statique depuis dist/) ---
       - name: Deploy to Vercel (static dist)
